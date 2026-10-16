@@ -1,0 +1,377 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>糖果彈珠</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Huninn&display=swap">
+<style>
+/* Layout: one centered column — title + stats, a tall candy-jar play field (canvas), then rules. */
+:root {
+  --bg: #fff4ee;
+  --bg-dot: #ffe2d6;
+  --ink: #4a2b3a;
+  --ink-soft: #8a6676;
+  --field: #fde9ea;
+  --field-edge: #f7c9cf;
+  --panel: #ffffff;
+  --accent: #ff5d8f;
+  --accent-ink: #ffffff;
+  --danger: #ff4d6d;
+  --shadow: rgba(160, 60, 90, .18);
+  --font-display: "Baloo 2", "Huninn", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-body: "Huninn", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #23162a; --bg-dot: #2e1e37; --ink: #fbe9f0; --ink-soft: #c7a6b8;
+    --field: #3a2442; --field-edge: #4a2c50; --panel: #36223e; --accent: #ff6f9c; --accent-ink: #2a0f1d;
+    --danger: #ff6f86; --shadow: rgba(0, 0, 0, .4); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #23162a; --bg-dot: #2e1e37; --ink: #fbe9f0; --ink-soft: #c7a6b8;
+  --field: #3a2442; --field-edge: #4a2c50; --panel: #36223e; --accent: #ff6f9c; --accent-ink: #2a0f1d;
+  --danger: #ff6f86; --shadow: rgba(0, 0, 0, .4); color-scheme: dark;
+}
+html, body { min-height: 100%; }
+body {
+  background: var(--bg);
+  background-image: radial-gradient(var(--bg-dot) 2.5px, transparent 3px);
+  background-size: 26px 26px;
+  color: var(--ink); font-family: var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 460px; margin: 0 auto; display: grid; gap: 14px; justify-items: center; }
+.wrap > * { width: 100%; }
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem, 8vw, 2.6rem); line-height: 1; }
+h1 span { color: var(--accent); }
+.stats { display: flex; gap: 8px; }
+.stat { background: var(--panel); border-radius: 14px; padding: 5px 12px 3px; min-width: 62px; text-align: center; box-shadow: 0 3px 0 var(--shadow); }
+.stat span { display: block; font-size: .72rem; color: var(--ink-soft); letter-spacing: .08em; }
+.stat b { font-family: var(--font-display); font-size: 1.35rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.bar p { margin: 0; color: var(--ink-soft); font-size: .92rem; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+button {
+  font-family: var(--font-body); font-size: .98rem; border: 0; cursor: pointer;
+  padding: 8px 15px; border-radius: 999px; background: var(--accent); color: var(--accent-ink);
+  box-shadow: 0 4px 0 var(--shadow); transition: transform .1s, box-shadow .1s;
+}
+button.ghost { background: var(--panel); color: var(--ink); }
+button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--shadow); }
+button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+.stage {
+  position: relative; justify-self: center;
+  width: min(100%, 460px, calc((100dvh - 210px) * 0.645));
+  min-width: min(100%, 280px);
+  aspect-ratio: 400 / 620; max-width: 100%;
+  border-radius: 24px; overflow: hidden;
+  background: var(--field); box-shadow: inset 0 0 0 4px var(--field-edge), 0 8px 0 var(--shadow);
+  touch-action: none; user-select: none; cursor: crosshair;
+}
+canvas { display: block; width: 100%; height: 100%; }
+.overlay {
+  position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent); animation: fade .3s ease-out; cursor: default;
+}
+.overlay h2 { margin: 0 0 6px; font-family: var(--font-display); font-size: clamp(1.6rem, 7vw, 2.2rem); }
+.overlay p { margin: 0 0 16px; color: var(--ink-soft); line-height: 1.6; }
+.overlay .btns { justify-content: center; }
+@keyframes fade { from { opacity: 0; } }
+.help { color: var(--ink-soft); font-size: .9rem; line-height: 1.7; display: grid; gap: 6px; }
+.help p { margin: 0; }
+.help b { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .overlay { animation: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>糖果<span>彈珠</span></h1>
+    <div class="stats">
+      <div class="stat"><span>關卡</span><b id="level">1</b></div>
+      <div class="stat"><span>已投球</span><b id="shots">0</b></div>
+      <div class="stat"><span>剩下</span><b id="left">0</b></div>
+    </div>
+  </header>
+  <div class="bar">
+    <p>移動到想放的位置，點一下放球</p>
+    <div class="btns">
+      <button class="ghost" id="sound" aria-pressed="true">音效：開</button>
+      <button class="ghost" id="retry">重玩本關</button>
+    </div>
+  </div>
+  <div class="stage" id="stage" aria-label="遊戲畫面">
+    <canvas id="cv"></canvas>
+    <div class="overlay" id="win" hidden>
+      <div>
+        <h2>過關！</h2>
+        <p id="win-text">所有糖果球都清光了</p>
+        <div class="btns"><button id="next">下一關</button></div>
+      </div>
+    </div>
+    <div class="overlay" id="lose" hidden>
+      <div>
+        <h2>糖果球碰到頂端了</h2>
+        <p>差一點點！再試一次吧</p>
+        <div class="btns"><button id="again">再試一次</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="help">
+    <p><b>操作：</b>電腦移動滑鼠選位置，點一下放球；手機手指左右滑動選位置，放開就放球。也可以用 <b>←</b> <b>→</b> 選位置、<b>空白鍵</b>放球。</p>
+    <p><b>玩法：</b>小球從上方落下，碰到糖果球會彈開，每碰一次糖果球上的數字減 1，減到 0 就消失。小球掉出畫面底部後，所有糖果球會往上移一格。</p>
+    <p><b>勝利條件：</b>把畫面上所有糖果球都清光就過關，接著挑戰下一關（球更多、數字更大）。</p>
+    <p><b>失敗條件：</b>任何一顆糖果球碰到上方的紅色虛線就失敗，可以重玩本關。</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const W = 400, H = 620, DROP_Y = 46, DANGER_Y = 92, BALL_R = 9, RISE = 20;
+  const G = 1500, E_TARGET = 0.8, E_WALL = 0.85, MIN_BOUNCE = 260, MAX_V = 1300;
+  const CANDY = ["#fff1d6", "#ffdcc2", "#ffb38a", "#ff8f70", "#ff6f7d", "#ffd84d", "#b8ec7a", "#7fdcc0", "#82c8ff", "#a99bff"];
+  const $ = id => document.getElementById(id);
+  const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage");
+
+  // ---------- theme colors from CSS tokens ----------
+  let C = {};
+  function readTheme() {
+    const s = getComputedStyle(document.documentElement);
+    ["--field", "--ink", "--ink-soft", "--accent", "--danger", "--panel"].forEach(k => C[k] = s.getPropertyValue(k).trim());
+  }
+  readTheme();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readTheme);
+  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // ---------- canvas sizing ----------
+  let scale = 1;
+  function resize() {
+    const r = stage.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    scale = cv.width / W;
+  }
+  new ResizeObserver(resize).observe(stage); resize();
+
+  // ---------- sound ----------
+  const Sound = (() => {
+    let ac = null, on = true;
+    try { on = localStorage.getItem("candydrop-sound") !== "off"; } catch (e) {}
+    function a() {
+      if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+      if (ac.state === "suspended") ac.resume().catch(() => {});
+      return ac;
+    }
+    function tone(f, t0, dur, type, vol, to) {
+      const c = a(); if (!c) return;
+      const o = c.createOscillator(), g = c.createGain(), s = c.currentTime + t0;
+      o.type = type; o.frequency.setValueAtTime(f, s);
+      if (to) o.frequency.exponentialRampToValueAtTime(to, s + dur);
+      g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(vol, s + .01);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+      o.connect(g).connect(c.destination); o.start(s); o.stop(s + dur + .03);
+    }
+    let lastHit = 0;
+    return {
+      get on() { return on; },
+      toggle() { on = !on; try { localStorage.setItem("candydrop-sound", on ? "on" : "off"); } catch (e) {} if (on) a(); return on; },
+      unlock() { if (on) a(); },
+      drop() { if (on) tone(600, 0, .12, "sine", .08, 300); },
+      hit(n) {
+        if (!on) return; const now = performance.now(); if (now - lastHit < 35) return; lastHit = now;
+        const f = 300 + Math.min(n, 30) * 28; tone(f, 0, .08, "triangle", .1, f * 1.2);
+      },
+      pop() { if (on) { tone(520, 0, .18, "sine", .2, 1300); tone(1040, .03, .12, "triangle", .06); } },
+      rise() { if (on) tone(180, 0, .2, "sine", .06, 240); },
+      win() { if (on) [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, i * .1, .26, "triangle", .15)); },
+      lose() { if (on) [392, 330, 262, 196].forEach((f, i) => tone(f, i * .17, .3, "sine", .13)); }
+    };
+  })();
+  function paintSound() { $("sound").textContent = Sound.on ? "音效：開" : "音效：關"; $("sound").setAttribute("aria-pressed", String(Sound.on)); }
+  paintSound();
+  $("sound").onclick = () => { Sound.toggle(); paintSound(); if (Sound.on) Sound.pop(); };
+  ["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, () => Sound.unlock(), { once: true }));
+
+  // ---------- state ----------
+  let level = 1, shots = 0, targets = [], ball = null, parts = [];
+  let phase = "aim"; // aim | fall | rise | win | lose
+  let aimX = W / 2, riseT = 0, nextId = 1;
+
+  function makeLevel(L) {
+    const count = Math.min(7 + L * 2, 22);
+    const out = [], top = H * 0.56, bottom = H - 16;
+    let tries = 0;
+    while (out.length < count && tries < 4000) {
+      tries++;
+      const r = 16 + Math.random() * (14 + Math.min(L, 6) * 2.5);
+      const x = r + 6 + Math.random() * (W - 2 * r - 12);
+      const y = top + r + Math.random() * (bottom - top - 2 * r);
+      if (out.some(t => Math.hypot(t.x - x, t.y - y) < t.r + r + 22)) continue;
+      const n = Math.max(1, Math.round((r - 12) / 4.5 + L * 0.8 + Math.random() * 2));
+      out.push({ id: nextId++, x, y, r, n, color: CANDY[(out.length * 3 + L) % CANDY.length], cool: 0, flash: 0 });
+    }
+    return out;
+  }
+  function startLevel(L) {
+    level = L; shots = 0; targets = makeLevel(L); ball = null; parts = []; phase = "aim";
+    $("win").hidden = true; $("lose").hidden = true; hud();
+  }
+  function hud() { $("level").textContent = level; $("shots").textContent = shots; $("left").textContent = targets.length; }
+
+  // ---------- input ----------
+  function toLogical(e) { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; }
+  function clampAim(x) { return Math.max(BALL_R + 4, Math.min(W - BALL_R - 4, x)); }
+  stage.addEventListener("pointermove", e => { if (e.target.closest(".overlay")) return; aimX = clampAim(toLogical(e)); });
+  stage.addEventListener("pointerdown", e => { if (e.target.closest(".overlay")) return; aimX = clampAim(toLogical(e)); });
+  stage.addEventListener("pointerup", e => { if (e.target.closest(".overlay")) return; aimX = clampAim(toLogical(e)); drop(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft") { aimX = clampAim(aimX - 12); e.preventDefault(); }
+    else if (e.key === "ArrowRight") { aimX = clampAim(aimX + 12); e.preventDefault(); }
+    else if (e.key === " " && !(e.target.closest && e.target.closest("button"))) { e.preventDefault(); drop(); }
+  });
+  function drop() {
+    if (phase !== "aim") return;
+    ball = { x: aimX, y: DROP_Y, vx: (Math.random() - .5) * 8, vy: 0, t: 0 };
+    phase = "fall"; shots++; hud(); Sound.drop();
+  }
+  $("retry").onclick = () => startLevel(level);
+  $("again").onclick = () => startLevel(level);
+  $("next").onclick = () => startLevel(level + 1);
+
+  // ---------- physics ----------
+  function burst(t) {
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * Math.PI * 2, s = 80 + Math.random() * 220;
+      parts.push({ x: t.x, y: t.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: .6, max: .6, color: t.color, r: 2 + Math.random() * 3 });
+    }
+  }
+  function stepBall(dt) {
+    const b = ball;
+    b.vy += G * dt; b.x += b.vx * dt; b.y += b.vy * dt; b.t += dt;
+    if (b.x < BALL_R) { b.x = BALL_R; b.vx = Math.abs(b.vx) * E_WALL; }
+    if (b.x > W - BALL_R) { b.x = W - BALL_R; b.vx = -Math.abs(b.vx) * E_WALL; }
+    if (b.y < BALL_R) { b.y = BALL_R; b.vy = Math.abs(b.vy) * E_WALL; }
+    for (let i = targets.length - 1; i >= 0; i--) {
+      const t = targets[i];
+      const dx = b.x - t.x, dy = b.y - t.y, d = Math.hypot(dx, dy), min = t.r + BALL_R;
+      if (d >= min || d === 0) continue;
+      const nx = dx / d, ny = dy / d;
+      b.x = t.x + nx * min; b.y = t.y + ny * min;
+      const vn = b.vx * nx + b.vy * ny;
+      if (vn < 0) {
+        b.vx -= (1 + E_TARGET) * vn * nx; b.vy -= (1 + E_TARGET) * vn * ny;
+        const out = b.vx * nx + b.vy * ny;
+        if (out < MIN_BOUNCE) { b.vx += (MIN_BOUNCE - out) * nx; b.vy += (MIN_BOUNCE - out) * ny; }
+        if (t.cool <= 0) {
+          t.n--; t.cool = .07; t.flash = 1;
+          if (t.n <= 0) {
+            targets.splice(i, 1); burst(t); Sound.pop(); hud();
+            if (!targets.length) { win(); }
+          } else Sound.hit(t.n);
+        }
+      }
+    }
+    const sp = Math.hypot(b.vx, b.vy);
+    if (sp > MAX_V) { b.vx *= MAX_V / sp; b.vy *= MAX_V / sp; }
+  }
+  function win() {
+    phase = "win";
+    $("win-text").textContent = `第 ${level} 關用了 ${shots} 顆球清光所有糖果球`;
+    setTimeout(() => { $("win").hidden = false; Sound.win(); }, 500);
+  }
+  function lose() { phase = "lose"; Sound.lose(); setTimeout(() => { $("lose").hidden = false; }, 300); }
+
+  let riseFrom = [];
+  function update(dt) {
+    targets.forEach(t => { t.cool -= dt; t.flash = Math.max(0, t.flash - dt * 5); });
+    for (const p of parts) { p.vy += 600 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+    parts = parts.filter(p => p.life > 0);
+
+    if (ball) {
+      const steps = 6;
+      for (let i = 0; i < steps && ball; i++) {
+        stepBall(dt / steps);
+        if (ball.y - BALL_R > H || ball.t > 15) {
+          ball = null;
+          if (phase === "fall") { phase = "rise"; riseT = 0; riseFrom = targets.map(t => t.y); Sound.rise(); }
+        }
+      }
+    }
+    if (phase === "rise") {
+      riseT = Math.min(1, riseT + dt / .35);
+      const k = 1 - Math.pow(1 - riseT, 3);
+      targets.forEach((t, i) => t.y = riseFrom[i] - RISE * k);
+      if (riseT >= 1) {
+        if (targets.some(t => t.y - t.r <= DANGER_Y)) lose();
+        else phase = "aim";
+      }
+    }
+  }
+
+  // ---------- drawing ----------
+  function draw() {
+    const c = ctx; c.setTransform(scale, 0, 0, scale, 0, 0);
+    c.clearRect(0, 0, W, H);
+    // danger line
+    c.save(); c.strokeStyle = C["--danger"]; c.lineWidth = 2; c.setLineDash([8, 7]);
+    c.globalAlpha = .75; c.beginPath(); c.moveTo(10, DANGER_Y); c.lineTo(W - 10, DANGER_Y); c.stroke(); c.restore();
+    // guide line + ghost ball while aiming
+    if (phase === "aim") {
+      c.save(); c.strokeStyle = C["--ink-soft"]; c.globalAlpha = .35; c.lineWidth = 2; c.setLineDash([3, 9]);
+      c.beginPath(); c.moveTo(aimX, DROP_Y + BALL_R + 4); c.lineTo(aimX, H); c.stroke(); c.restore();
+    }
+    // dropper
+    c.save(); c.fillStyle = C["--accent"];
+    roundRect(c, aimX - 18, 8, 36, 20, 8); c.fill();
+    c.fillRect(aimX - 6, 26, 12, 8); c.restore();
+    if (phase === "aim") drawBall(aimX, DROP_Y);
+    // targets
+    for (const t of targets) {
+      const s = 1 + t.flash * .08;
+      c.save(); c.translate(t.x, t.y); c.scale(s, s);
+      c.fillStyle = t.color; c.beginPath(); c.arc(0, 0, t.r, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "rgba(0,0,0,.08)"; c.beginPath(); c.arc(0, 0, t.r, .15 * Math.PI, .85 * Math.PI); c.arc(0, -t.r * .25, t.r * .92, .85 * Math.PI, .15 * Math.PI, true); c.fill();
+      c.fillStyle = "rgba(255,255,255,.55)"; c.beginPath(); c.ellipse(-t.r * .38, -t.r * .42, t.r * .22, t.r * .13, -.6, 0, Math.PI * 2); c.fill();
+      if (t.flash > 0) { c.fillStyle = `rgba(255,255,255,${t.flash * .5})`; c.beginPath(); c.arc(0, 0, t.r, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = "#4a2b3a"; c.textAlign = "center"; c.textBaseline = "middle";
+      c.font = `800 ${Math.round(t.r * (t.n >= 10 ? .78 : .95))}px "Baloo 2", sans-serif`;
+      c.fillText(t.n, 0, t.r * .08);
+      c.restore();
+    }
+    // particles
+    for (const p of parts) { c.globalAlpha = Math.max(0, p.life / p.max); c.fillStyle = p.color; c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.fill(); }
+    c.globalAlpha = 1;
+    if (ball) drawBall(ball.x, ball.y);
+  }
+  function drawBall(x, y) {
+    const c = ctx;
+    c.fillStyle = C["--accent"]; c.beginPath(); c.arc(x, y, BALL_R, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "rgba(255,255,255,.7)"; c.beginPath(); c.arc(x - 3, y - 3, 2.8, 0, Math.PI * 2); c.fill();
+  }
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(.033, (now - last) / 1000); last = now;
+    update(dt); draw(); requestAnimationFrame(loop);
+  }
+
+  function start(data) {
+    if (data && data.targets && data.targets.length) {
+      level = data.level || 1; shots = data.shots || 0; targets = data.targets.map(t => ({ ...t, cool: 0, flash: 0 }));
+      nextId = Math.max(...targets.map(t => t.id)) + 1; phase = "aim"; hud();
+    } else startLevel(1);
+    requestAnimationFrame(loop);
+  }
+  window.claude?.hot?.snapshot?.(() => ({ level, shots, targets: phase === "win" || phase === "lose" ? [] : targets }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+
+</body></html>
